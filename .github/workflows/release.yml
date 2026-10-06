@@ -3,6 +3,8 @@ name: Release
 on:
   push:
     branches: [main]
+  # Lets a failed publish be retried without a new commit.
+  workflow_dispatch:
 
 # Only one release at a time, and never cancel a run that may already be publishing.
 concurrency:
