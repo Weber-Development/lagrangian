@@ -12,6 +12,7 @@ reduced motion is respected throughout.
 | [Bottom sheet](sheet.md) | Detents, lands where the throw would carry it, closes on a flick, Escape or a tap on the backdrop |
 | [Swipe stack](swipe-stack.md) | Cards that tilt around the grip point, fly off at the thrown speed, undo |
 | [Sortable lists](sortable.md) | Drag to reorder with springs, keyboard and screen reader support, layout transitions |
+| [Pull to refresh, carousel, drawer, dialog](blocks.md) | Four more blocks with throw physics, focus handling and keyboard support |
 | [Jelly, ropes and sounds](effects.md) | Squash and stretch from velocity, Verlet ropes, synthesized impact sounds |
 
 ## Packages

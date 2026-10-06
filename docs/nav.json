@@ -25,6 +25,7 @@
         "pro/sheet",
         "pro/swipe-stack",
         "pro/sortable",
+        "pro/blocks",
         "pro/effects"
       ]
     },
