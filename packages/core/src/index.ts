@@ -27,6 +27,7 @@ export {
 export { type Derivatives, rk4, type System, system } from "./integrate";
 export { loop, now, type Task } from "./loop";
 export { type ReducedMotion, reducedMotion, setReducedMotion } from "./reduced-motion";
+export { type Scroller, type ScrollerOptions, scroller } from "./scroller";
 export {
   dampingRatio,
   type Motion,
@@ -44,9 +45,12 @@ export {
   type Body,
   type BodyOptions,
   type Grab,
+  type Joint,
   type Link,
   type LinkOptions,
+  type Motor,
   type Rect,
+  type RodOptions,
   type Vector,
   World,
   type WorldOptions,

@@ -1,6 +1,6 @@
 ---
 title: The world
-description: Gravity, collisions, friction, rolling, springs and grabbing for round and rectangular bodies.
+description: Gravity, collisions, friction, rolling, springs, joints, sensors and grabbing for round and rectangular bodies.
 ---
 
 ```ts
@@ -38,6 +38,37 @@ const card = world.add({
 - **Links** between bodies: damped springs with a frequency in Hz and a damping ratio, stable regardless of mass.
 - **Grabbing.** `world.bindPointer()` lets the pointer pick up bodies with a critically damped joint. Let go while moving and the body flies on.
 
+## Joints
+
+```ts
+// A pendulum on a nail: the pin holds a point of the body to a point of the page
+const bob = world.add({ x: 300, y: 260, radius: 18 });
+world.rod(bob, { x: 300, y: 10 });                      // rigid rod to the page
+
+// A chain: every link is hinged to the next
+world.pin(links[0], { x: 100, y: 40 });
+for (let i = 1; i < links.length; i++) world.hinge(links[i - 1], links[i], { x: 100 + i * 40, y: 40 });
+
+// A wheel with a motor, or a windmill
+world.pin(wheel, { x: wheel.x, y: wheel.y }, { speed: 3, torque: 5 });
+```
+
+`pin(body, at?, motor?)` fixes a point of a body to a point of the page, `hinge(a, b, at, motor?)` joins two bodies at a point, and `rod(a, b | point, { from?, to?, length? })` keeps two anchors a fixed distance apart. The anchors turn with their bodies. A motor drives the angular speed (rad/s) with at most `torque` N·m; a hinge turns the second body against the first. `world.unjoin(joint)` removes one, and removing a body removes its joints. Joints are solved with impulses and a gentle correction of drift, so a swinging pendulum keeps the period `2π√(L/g)` physics gives it.
+
+## Sensors
+
+```ts
+const goal = world.add({
+  x: 300, y: 440, width: 200, height: 60, fixed: true, sensor: true,
+  onEnter: (body) => score(body),
+  onLeave: (body) => {},
+});
+
+world.touching(goal); // the bodies inside right now
+```
+
+A sensor overlaps other bodies instead of colliding with them. It reports bodies that enter and leave while the world runs, for drop zones, triggers and goals. A sensor can also move: give it a velocity or let the user drag it.
+
 ## Controlling it
 
 `world.push(body, { x, y }, at?)` adds an impulse (at a point for spin). `world.link(a, b, { length, frequency, damping })` connects bodies. `world.grab(body, x, y)` returns `{ move, release }` for your own input. `world.step(dt)` advances it manually, e.g. for tests or video. `onFrame` runs after every frame, for drawing on a canvas.
@@ -48,4 +79,4 @@ Bodies fall asleep one by one when they have moved less than a few pixels for a 
 
 ## Limits
 
-Bodies are circles and boxes. This keeps the engine small; it is meant for playful interfaces, not games with arbitrary polygons and joints (both are on the way to 1.0). A box needs `width` and `height` instead of `radius`; `body.radius` is then the radius of the circle around it.
+Bodies are circles and boxes. This keeps the engine small; it is meant for playful interfaces, not games with arbitrary polygons (they are on the way to 1.0). A box needs `width` and `height` instead of `radius`; `body.radius` is then the radius of the circle around it.

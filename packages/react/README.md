@@ -13,6 +13,7 @@ pnpm add @sweberdev/lagrangian @sweberdev/lagrangian-react
 | `useValue(value)` | the current number, re-rendering on change (for readouts) |
 | `usePhysicsValue(initial)` | a physical value that lives as long as the component |
 | `useDraggable(options)` | ref and handle for a draggable, throwable element |
+| `useScroller(options)` | ref and handle for a scroll area with inertia and rubber-banding |
 | `useWorld(options)` | ref for the container and the running `World` |
 | `useBody(world, options)` | ref for an element that follows a body in the world |
 
