@@ -1,0 +1,73 @@
+{
+  "name": "@sweberdev/lagrangian",
+  "version": "0.0.0",
+  "description": "Animation with real physics: analytic springs that keep their velocity when interrupted, inertia with bounds and snap points, draggable throws, and a small 2D world with gravity, collisions and friction.",
+  "license": "MIT",
+  "author": "Seya Weber (https://github.com/sxwxbxr)",
+  "homepage": "https://packages.sweber.dev/lagrangian/docs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Weber-Development/lagrangian.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/Weber-Development/lagrangian/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "animation",
+    "physics",
+    "spring",
+    "spring-animation",
+    "inertia",
+    "momentum",
+    "drag",
+    "gesture",
+    "gravity",
+    "collision",
+    "physics-engine",
+    "rk4",
+    "reduced-motion"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "size": "node scripts/size.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "esbuild": "^0.27.7",
+    "jsdom": "^27.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.3"
+  }
+}
