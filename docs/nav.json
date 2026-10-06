@@ -23,6 +23,7 @@
         "pro/swipe-stack",
         "pro/sortable",
         "pro/blocks",
+        "pro/stack",
         "pro/effects"
       ]
     },

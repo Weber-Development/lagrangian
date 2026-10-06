@@ -13,6 +13,7 @@ reduced motion is respected throughout.
 | [Swipe stack](swipe-stack.md) | Cards that tilt around the grip point, fly off at the thrown speed, undo |
 | [Sortable lists](sortable.md) | Drag to reorder with springs, keyboard and screen reader support, layout transitions |
 | [Pull to refresh, carousel, drawer, dialog](blocks.md) | Four more blocks with throw physics, focus handling and keyboard support |
+| [Toasts, indicator, fall](stack.md) | A swipeable toast stack, a sliding tab indicator and a page effect that lets a section fall apart and come back |
 | [Jelly, ropes and sounds](effects.md) | Squash and stretch from velocity, Verlet ropes, synthesized impact sounds |
 
 ## Packages
