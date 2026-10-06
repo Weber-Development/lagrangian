@@ -14,6 +14,7 @@ reduced motion is respected throughout.
 | [Sortable lists](sortable.md) | Drag to reorder with springs, keyboard and screen reader support, layout transitions |
 | [Pull to refresh, carousel, drawer, dialog](blocks.md) | Four more blocks with throw physics, focus handling and keyboard support |
 | [Toasts, indicator, fall](stack.md) | A swipeable toast stack, a sliding tab indicator and a page effect that lets a section fall apart and come back |
+| [Board and zoom](board.md) | Drag to rearrange a grid or the columns of a board, and pinch, wheel and double tap zoom |
 | [Jelly, ropes and sounds](effects.md) | Squash and stretch from velocity, Verlet ropes, synthesized impact sounds |
 
 ## Packages
