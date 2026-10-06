@@ -1,6 +1,6 @@
 ---
 title: Why Lagrangian
-description: Animation with real physics: interruptible springs, throws with friction, gravity and collisions.
+description: "Animation with real physics: interruptible springs, throws with friction, gravity and collisions."
 ---
 
 Most web animation is a curve over a fixed duration. That works until the user interrupts: click twice and the element stops dead and starts again, throw something and it ignores how fast you threw it. Real objects do not behave like that. They have mass and velocity, and whatever happens next starts from where they are and how fast they move.
