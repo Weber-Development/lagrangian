@@ -51,6 +51,7 @@ export {
   type Motor,
   type Rect,
   type RodOptions,
+  regularPolygon,
   type Vector,
   World,
   type WorldOptions,
