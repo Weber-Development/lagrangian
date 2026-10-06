@@ -84,6 +84,10 @@ describe("react", () => {
       );
     }
     const { getByTestId } = render(<Scene />);
+    // Let React finish attaching the refs before stepping the loop.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
     await frames(10);
     const transform = getByTestId("ball").style.transform;
     expect(transform).toMatch(/^translate3d\(40px, /);
