@@ -43,6 +43,13 @@ export interface BodyOptions {
   spin?: number;
   /** An element positioned at the top left of the world that follows this body. */
   element?: HTMLElement | SVGElement | null;
+  /**
+   * A sensor detects other bodies without colliding with them: a zone to drop things into,
+   * a trigger, a goal. Give it `onEnter` and `onLeave`.
+   */
+  sensor?: boolean;
+  onEnter?: (other: Body) => void;
+  onLeave?: (other: Body) => void;
 }
 
 export interface Body {
@@ -66,6 +73,13 @@ export interface Body {
   /** True while the body rests. It wakes when something hits it or you call `world.wake(body)`. */
   sleeping: boolean;
   element: HTMLElement | SVGElement | null;
+  /** True for a sensor: it overlaps other bodies instead of colliding with them. */
+  readonly sensor: boolean;
+  /** Called when another body starts overlapping this sensor. */
+  onEnter?: ((other: Body) => void) | undefined;
+  /** Called when another body stops overlapping this sensor. */
+  onLeave?: ((other: Body) => void) | undefined;
+  /** @internal */ inside: Set<Body>;
   /** @internal */ invMass: number;
   /** @internal */ invInertia: number;
   /** @internal */ rest: { x: number; y: number; a: number; time: number };
@@ -86,6 +100,37 @@ export interface Link {
   length: number;
   frequency: number;
   damping: number;
+}
+
+export interface Motor {
+  /** Target angular speed in rad/s. */
+  speed: number;
+  /** Largest torque it may apply, in N·m. Default 5. */
+  torque?: number;
+}
+
+export interface Joint {
+  readonly kind: "pin" | "rod";
+  /** The body the joint holds; `b` is the other one, or null when the joint is fixed to the page. */
+  readonly a: Body;
+  readonly b: Body | null;
+  /** Anchor points relative to each body's centre, turning with it. */
+  readonly localA: Vector;
+  readonly localB: Vector;
+  /** For a joint with no second body: the fixed point in the world. */
+  readonly point: Vector;
+  /** Length of a rod in pixels. */
+  length: number;
+  /** Turns the body (or the second body against the first), e.g. a wheel or a windmill. Pins only. */
+  motor: Motor | null;
+}
+
+export interface RodOptions {
+  /** Where the rod attaches to each body, in world pixels. Default their centres. */
+  from?: Vector;
+  to?: Vector;
+  /** Length in pixels. Default the current distance of the anchors. */
+  length?: number;
 }
 
 export interface WorldOptions {
@@ -145,6 +190,15 @@ function reach(body: Body, nx: number, ny: number): number {
   );
 }
 
+/** A world point as seen from the centre of a body, turned with it. */
+function toLocal(body: Body, p: Vector): Vector {
+  const c = Math.cos(body.angle);
+  const s = Math.sin(body.angle);
+  const dx = p.x - body.x;
+  const dy = p.y - body.y;
+  return { x: dx * c + dy * s, y: -dx * s + dy * c };
+}
+
 interface Manifold {
   nx: number;
   ny: number;
@@ -155,6 +209,7 @@ interface Manifold {
 export class World {
   readonly bodies: Body[] = [];
   readonly links: Link[] = [];
+  readonly joints: Joint[] = [];
   gravity: Vector;
   pixelsPerMeter: number;
   airDrag: number;
@@ -234,6 +289,10 @@ export class World {
       fixed: options.fixed ?? false,
       sleeping: false,
       element: options.element ?? null,
+      sensor: options.sensor ?? false,
+      onEnter: options.onEnter,
+      onLeave: options.onLeave,
+      inside: new Set(),
       invMass: options.fixed ? 0 : 1 / mass,
       // Solid disc: I = ½·m·r², solid box: I = m·(w² + h²)/12, with lengths in pixels so
       // impulses stay in pixel units.
@@ -255,7 +314,85 @@ export class World {
       const link = this.links[i] as Link;
       if (link.a === body || link.b === body) this.links.splice(i, 1);
     }
+    for (let i = this.joints.length - 1; i >= 0; i--) {
+      const joint = this.joints[i] as Joint;
+      if (joint.a === body || joint.b === body) this.joints.splice(i, 1);
+    }
+    for (const other of this.bodies) {
+      if (other.inside.delete(body)) other.onLeave?.(body);
+    }
     for (const grab of this.#grabs) if (grab.body === body) this.#grabs.delete(grab);
+  }
+
+  /**
+   * Fixes a point of a body to a point of the page: the body can still turn around it, like a
+   * pendulum on a nail. `at` defaults to the body's centre; a `motor` turns it.
+   */
+  pin(body: Body, at: Vector = { x: body.x, y: body.y }, motor: Motor | null = null): Joint {
+    const joint: Joint = {
+      kind: "pin",
+      a: body,
+      b: null,
+      localA: toLocal(body, at),
+      localB: { x: 0, y: 0 },
+      point: { x: at.x, y: at.y },
+      length: 0,
+      motor,
+    };
+    this.joints.push(joint);
+    this.wake(body);
+    return joint;
+  }
+
+  /** Joins two bodies at a point so they can turn against each other: a hinge or an elbow. */
+  hinge(a: Body, b: Body, at: Vector, motor: Motor | null = null): Joint {
+    const joint: Joint = {
+      kind: "pin",
+      a,
+      b,
+      localA: toLocal(a, at),
+      localB: toLocal(b, at),
+      point: { x: at.x, y: at.y },
+      length: 0,
+      motor,
+    };
+    this.joints.push(joint);
+    this.wake(a);
+    this.wake(b);
+    return joint;
+  }
+
+  /** A rigid rod of fixed length between two bodies, or between a body and a point of the page. */
+  rod(a: Body, b: Body | Vector, options: RodOptions = {}): Joint {
+    const other = "mass" in b ? b : null;
+    const from = options.from ?? { x: a.x, y: a.y };
+    const to = options.to ?? (other ? { x: other.x, y: other.y } : (b as Vector));
+    const joint: Joint = {
+      kind: "rod",
+      a,
+      b: other,
+      localA: toLocal(a, from),
+      localB: other ? toLocal(other, to) : { x: 0, y: 0 },
+      point: other ? { x: 0, y: 0 } : { x: to.x, y: to.y },
+      length: options.length ?? Math.hypot(to.x - from.x, to.y - from.y),
+      motor: null,
+    };
+    this.joints.push(joint);
+    this.wake(a);
+    if (other) this.wake(other);
+    return joint;
+  }
+
+  unjoin(joint: Joint): void {
+    const index = this.joints.indexOf(joint);
+    if (index >= 0) this.joints.splice(index, 1);
+    this.wake(joint.a);
+    if (joint.b) this.wake(joint.b);
+  }
+
+  /** The bodies that overlap a sensor right now. */
+  touching(sensor: Body): Body[] {
+    return Array.from(sensor.inside);
   }
 
   /** Connects two bodies with a damped spring. */
@@ -405,6 +542,7 @@ export class World {
     this.#observer?.disconnect();
     this.bodies.length = 0;
     this.links.length = 0;
+    this.joints.length = 0;
     this.#grabs.clear();
   }
 
@@ -415,6 +553,7 @@ export class World {
       this.step(h);
       this.#pending -= h;
     }
+    this.#sense();
     for (const body of this.bodies) this.#draw(body);
     this.#options.onFrame?.(this);
 
@@ -501,12 +640,14 @@ export class World {
     const bodies = [...this.bodies].sort((a, b) => a.x - a.radius - (b.x - b.radius));
     const restingSpeed = 0.5 * ppm;
     for (let pass = 0; pass < this.iterations; pass++) {
+      for (const joint of this.joints) this.#joint(joint, dt);
       for (let i = 0; i < bodies.length; i++) {
         const a = bodies[i] as Body;
         for (let j = i + 1; j < bodies.length; j++) {
           const b = bodies[j] as Body;
           if (b.x - b.radius > a.x + a.radius) break;
           if ((a.fixed || a.sleeping) && (b.fixed || b.sleeping)) continue;
+          if (a.sensor || b.sensor) continue;
           const dx = b.x - a.x;
           const dy = b.y - a.y;
           const sum = a.radius + b.radius;
@@ -514,7 +655,7 @@ export class World {
           if (d2 >= sum * sum) continue;
           this.#collide(a, b, restingSpeed, pass === 0);
         }
-        if (this.bounds && !a.fixed && !a.sleeping) {
+        if (this.bounds && !a.fixed && !a.sleeping && !a.sensor) {
           this.#walls(a, this.bounds, restingSpeed, pass === 0);
         }
       }
@@ -665,6 +806,122 @@ export class World {
       points.push({ x: a.x + bx * ra, y: a.y + by * ra, depth: best });
     }
     return { nx: bx, ny: by, points: points.slice(0, 2) };
+  }
+
+  /** Solves one joint with impulses, and pulls the anchors together by 20% of the gap per pass. */
+  #joint(joint: Joint, dt: number): void {
+    const { a, b } = joint;
+    if (a.sleeping && (!b || b.sleeping)) return;
+    if (b && a.sleeping !== b.sleeping) this.wake(a.sleeping ? a : b);
+    const ca = Math.cos(a.angle);
+    const sa = Math.sin(a.angle);
+    const rax = joint.localA.x * ca - joint.localA.y * sa;
+    const ray = joint.localA.x * sa + joint.localA.y * ca;
+    let rbx = 0;
+    let rby = 0;
+    let pbx = joint.point.x;
+    let pby = joint.point.y;
+    if (b) {
+      const cb = Math.cos(b.angle);
+      const sb = Math.sin(b.angle);
+      rbx = joint.localB.x * cb - joint.localB.y * sb;
+      rby = joint.localB.x * sb + joint.localB.y * cb;
+      pbx = b.x + rbx;
+      pby = b.y + rby;
+    }
+    const ima = a.invMass;
+    const iia = a.invInertia;
+    const imb = b ? b.invMass : 0;
+    const iib = b ? b.invInertia : 0;
+    const bias = 0.2 / dt;
+    // Velocity of the anchor on each body: v + ω × r.
+    const vax = a.vx - a.spin * ray;
+    const vay = a.vy + a.spin * rax;
+    const vbx = b ? b.vx - b.spin * rby : 0;
+    const vby = b ? b.vy + b.spin * rbx : 0;
+    const gapX = pbx - (a.x + rax);
+    const gapY = pby - (a.y + ray);
+
+    let px: number;
+    let py: number;
+    if (joint.kind === "pin") {
+      const rvx = vbx - vax + bias * gapX;
+      const rvy = vby - vay + bias * gapY;
+      const k11 = ima + imb + ray * ray * iia + rby * rby * iib;
+      const k12 = -rax * ray * iia - rbx * rby * iib;
+      const k22 = ima + imb + rax * rax * iia + rbx * rbx * iib;
+      const det = k11 * k22 - k12 * k12;
+      if (det === 0) return;
+      px = -(k22 * rvx - k12 * rvy) / det;
+      py = -(-k12 * rvx + k11 * rvy) / det;
+    } else {
+      const d = Math.hypot(gapX, gapY) || 1e-9;
+      const nx = gapX / d;
+      const ny = gapY / d;
+      const stretch = d - joint.length;
+      const rv = (vbx - vax) * nx + (vby - vay) * ny + bias * stretch;
+      const ca2 = rax * ny - ray * nx;
+      const cb2 = rbx * ny - rby * nx;
+      const k = ima + imb + ca2 * ca2 * iia + cb2 * cb2 * iib;
+      if (k === 0) return;
+      const j = -rv / k;
+      px = j * nx;
+      py = j * ny;
+    }
+    a.vx -= px * ima;
+    a.vy -= py * ima;
+    a.spin -= (rax * py - ray * px) * iia;
+    if (b) {
+      b.vx += px * imb;
+      b.vy += py * imb;
+      b.spin += (rbx * py - rby * px) * iib;
+    }
+
+    const motor = joint.motor;
+    if (motor && joint.kind === "pin") {
+      const ppm = this.pixelsPerMeter;
+      const limit = (motor.torque ?? 5) * ppm * ppm * dt;
+      // A pin to the page turns the body itself; a hinge turns the second body against the first.
+      const k = b ? iia + iib : iia;
+      if (k > 0) {
+        const relative = b ? b.spin - a.spin : a.spin;
+        const j = Math.max(-limit, Math.min(limit, (motor.speed - relative) / k));
+        if (b) {
+          a.spin -= j * iia;
+          b.spin += j * iib;
+        } else a.spin += j * iia;
+      }
+    }
+  }
+
+  /** Reports which bodies enter and leave each sensor. */
+  #sense(): void {
+    for (const sensor of this.bodies) {
+      if (!sensor.sensor) continue;
+      for (const other of this.bodies) {
+        if (other === sensor || other.sensor) continue;
+        const overlap = this.#overlaps(sensor, other);
+        const was = sensor.inside.has(other);
+        if (overlap && !was) {
+          sensor.inside.add(other);
+          sensor.onEnter?.(other);
+        } else if (!overlap && was) {
+          sensor.inside.delete(other);
+          sensor.onLeave?.(other);
+        }
+      }
+    }
+  }
+
+  #overlaps(a: Body, b: Body): boolean {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const sum = a.radius + b.radius;
+    if (dx * dx + dy * dy >= sum * sum) return false;
+    if (a.shape === "circle" && b.shape === "circle") return true;
+    if (a.shape === "circle") return this.#boxCircle(b, a) !== null;
+    if (b.shape === "circle") return this.#boxCircle(a, b) !== null;
+    return this.#boxBox(a, b) !== null;
   }
 
   #spring(link: Link, dt: number): void {

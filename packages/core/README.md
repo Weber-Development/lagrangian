@@ -1,13 +1,13 @@
 # Lagrangian
 
-Animation with real physics. Lagrangian moves interface elements the way objects move: **springs solved in closed form** that keep their velocity when you interrupt them, **throws with friction** that glide into bounds or land on snap points, **drag with iOS-style rubber-banding**, and a **small 2D world** with gravity, collisions, friction and rolling. Framework-agnostic, about 8 kB for everything, and unused parts are tree-shaken away.
+Animation with real physics. Lagrangian moves interface elements the way objects move: **springs solved in closed form** that keep their velocity when you interrupt them, **throws with friction** that glide into bounds or land on snap points, **drag with iOS-style rubber-banding**, and a **small 2D world** with gravity, collisions, friction and rolling. Framework-agnostic, about 10 kB for everything, and unused parts are tree-shaken away.
 
 **Docs and live demo:** [packages.sweber.dev/lagrangian](https://packages.sweber.dev/lagrangian)
 
 | Package | What it does |
 |---|---|
-| [`@sweberdev/lagrangian`](packages/core) | `animate`, `value`, `draggable`, `spring`, `decay`, `World`, `rk4`, `system` |
-| [`@sweberdev/lagrangian-react`](packages/react) | `useSpring`, `useSpringProps`, `useDraggable`, `useWorld`, `useBody`, `useValue` |
+| [`@sweberdev/lagrangian`](packages/core) | `animate`, `value`, `draggable`, `scroller`, `spring`, `decay`, `World`, `rk4`, `system` |
+| [`@sweberdev/lagrangian-react`](packages/react) | `useSpring`, `useSpringProps`, `useDraggable`, `useScroller`, `useWorld`, `useBody`, `useValue` |
 
 ## Springs that can be interrupted
 
@@ -45,7 +45,7 @@ world.add({ x: 120, y: 40, radius: 32, element: ball, restitution: 0.7 });
 world.bindPointer(); // grab and throw
 ```
 
-Round bodies with mass, restitution and Coulomb friction, so they bounce, slide and roll. Springs between bodies, a pointer joint for grabbing, a fixed 240 Hz step and a world that stops using CPU when everything rests. Gravity is 9.81 m/s² at 500 px per meter unless you change it.
+Round bodies with mass, restitution and Coulomb friction, so they bounce, slide and roll. Springs, hinges, rods and motors between bodies, sensors for drop zones, a pointer joint for grabbing, a fixed 240 Hz step and a world that stops using CPU when everything rests. Gravity is 9.81 m/s² at 500 px per meter unless you change it.
 
 ## Your own equations of motion
 
@@ -76,8 +76,9 @@ When the user asks for reduced motion, springs and throws jump to where they wou
 |---|---|
 | `spring` + `value` | about 2.1 kB |
 | `animate` + `draggable` | about 3.8 kB |
-| `World` | about 4.5 kB |
-| everything | about 8 kB |
+| `scroller` | about 4.6 kB |
+| `World` | about 5.5 kB |
+| everything | about 10 kB |
 
 `pnpm size` checks these budgets in CI.
 

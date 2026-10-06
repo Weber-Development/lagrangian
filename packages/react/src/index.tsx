@@ -8,7 +8,10 @@ import {
   draggable,
   type PhysicsValue,
   type Props,
+  type Scroller,
+  type ScrollerOptions,
   type SpringOptions,
+  scroller,
   value,
   World,
   type WorldOptions,
@@ -135,6 +138,27 @@ export function useDraggable<T extends HTMLElement>(
   return [ref, handle];
 }
 
+/** Makes the element a scroll area with inertia, rubber-banding and snap points. */
+export function useScroller<T extends HTMLElement>(
+  options: ScrollerOptions = {},
+): [RefCallback<T>, Scroller | null] {
+  const [handle, setHandle] = useState<Scroller | null>(null);
+  const latest = useLatest(options);
+  const ref = useAttach<T>((element) => {
+    const current = latest.current;
+    const s = scroller(element, {
+      ...current,
+      onScroll: (position) => latest.current.onScroll?.(position),
+    });
+    setHandle(s);
+    return () => {
+      s.destroy();
+      setHandle(null);
+    };
+  });
+  return [ref, handle];
+}
+
 /**
  * A running physics world whose walls are the container element. Bodies inside can be
  * grabbed and thrown unless `interactive` is false.
@@ -189,6 +213,8 @@ export type {
   DraggableOptions,
   PhysicsValue,
   Props,
+  Scroller,
+  ScrollerOptions,
   SpringOptions,
   WorldOptions,
 };

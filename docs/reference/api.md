@@ -20,7 +20,8 @@ description: Every export of @sweberdev/lagrangian and @sweberdev/lagrangian-rea
 | `projectRest`, `timeConstant`, `nearest` | throw maths |
 | `rubberband`, `rubberClamp` | iOS-style overscroll |
 | `VelocityTracker` | `add(timeMs, value)`, `velocity(timeMs?)`, `reset()` |
-| `World`, `world` | see [The world](../guides/world.md) |
+| `scroller` | `(viewport, { axis?, content?, rubberband?, deceleration?, snap?, wheel?, keys?, spring?, onScroll? }) => Scroller`, see [Scrolling with physics](../guides/scroller.md) |
+| `World`, `world` | see [The world](../guides/world.md): bodies, links, `pin`, `hinge`, `rod`, sensors |
 | `rk4`, `system` | see [Equations of motion](../guides/equations-of-motion.md) |
 | `loop` | `add(task)`, `manual(on)`, `step(ms)`, `size`: the shared frame loop |
 | `reducedMotion`, `setReducedMotion` | see [Reduced motion](../guides/reduced-motion.md) |

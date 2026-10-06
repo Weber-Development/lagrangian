@@ -13,7 +13,7 @@ Lagrangian animates with physics instead of durations:
 - **A small world.** Round bodies with gravity, air drag, restitution and Coulomb friction, so they bounce, slide and roll. Springs between bodies, a pointer joint for grabbing, a fixed 240 Hz step. It sleeps when everything rests.
 - **Your own physics.** `rk4` and `system` step any equations of motion, e.g. a double pendulum derived from its Lagrangian.
 - **Reduced motion respected.** Automatic motion jumps to its end when the user asks for less motion.
-- **Small and framework-agnostic.** About 8 kB min+gzip for everything and less when you import only what you use, plus React hooks.
+- **Small and framework-agnostic.** About 10 kB min+gzip for everything and less when you import only what you use, plus React hooks.
 
 ## When to use something else
 

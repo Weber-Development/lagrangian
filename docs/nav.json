@@ -10,6 +10,7 @@
         "guides/springs",
         "guides/drag-and-throw",
         "guides/world",
+        "guides/scroller",
         "guides/equations-of-motion",
         "guides/react",
         "guides/reduced-motion"
