@@ -1,6 +1,6 @@
 {
   "name": "@sweberdev/lagrangian",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Animation with real physics: analytic springs that keep their velocity when interrupted, inertia with bounds and snap points, draggable throws, and a small 2D world with gravity, collisions and friction.",
   "license": "MIT",
   "author": "Seya Weber (https://github.com/sxwxbxr)",
