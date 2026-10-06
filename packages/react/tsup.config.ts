@@ -6,7 +6,7 @@ export default defineConfig({
   dts: true,
   sourcemap: true,
   clean: true,
-  target: "es2021",
+  target: "es2022",
   external: ["react", "@sweberdev/lagrangian"],
   banner: { js: '"use client";' },
 });
