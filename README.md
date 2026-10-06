@@ -1,6 +1,6 @@
 # Lagrangian
 
-Animation with real physics. Lagrangian moves interface elements the way objects move: **springs solved in closed form** that keep their velocity when you interrupt them, **throws with friction** that glide into bounds or land on snap points, **drag with iOS-style rubber-banding**, and a **small 2D world** with gravity, collisions, friction and rolling. Framework-agnostic, about 7 kB for everything.
+Animation with real physics. Lagrangian moves interface elements the way objects move: **springs solved in closed form** that keep their velocity when you interrupt them, **throws with friction** that glide into bounds or land on snap points, **drag with iOS-style rubber-banding**, and a **small 2D world** with gravity, collisions, friction and rolling. Framework-agnostic, about 8 kB for everything, and unused parts are tree-shaken away.
 
 **Docs and live demo:** [packages.sweber.dev/lagrangian](https://packages.sweber.dev/lagrangian)
 
@@ -74,10 +74,10 @@ When the user asks for reduced motion, springs and throws jump to where they wou
 
 | Import | min+gzip |
 |---|---|
-| `spring` + `value` | about 3.4 kB |
-| `animate` + `draggable` | about 5 kB |
-| `World` | about 3.3 kB |
-| everything | about 7 kB |
+| `spring` + `value` | about 2.1 kB |
+| `animate` + `draggable` | about 3.8 kB |
+| `World` | about 4.5 kB |
+| everything | about 8 kB |
 
 `pnpm size` checks these budgets in CI.
 
