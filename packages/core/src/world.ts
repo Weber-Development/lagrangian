@@ -25,6 +25,12 @@ export interface BodyOptions {
   /** Size of a box. It rotates with `angle`, so cards and buttons can fall and tip over. */
   width?: number;
   height?: number;
+  /**
+   * Corners of a convex polygon in pixels, relative to (x, y), in either winding: a triangle, a
+   * hexagon, a star's hull. The body turns around the centre of mass of the shape. Concave shapes
+   * collide as their convex hull.
+   */
+  vertices?: readonly Vector[];
   /** Mass in kg. Defaults to the area times `density`. */
   mass?: number;
   /** kg per square meter, used when `mass` is not given. Default 1. */
@@ -59,11 +65,11 @@ export interface Body {
   vy: number;
   angle: number;
   spin: number;
-  /** "circle" or "box". */
-  readonly shape: "circle" | "box";
+  /** "circle", "box" or "polygon". */
+  readonly shape: "circle" | "box" | "polygon";
   /** Radius of a circle; for a box the radius of the circle around it. */
   readonly radius: number;
-  /** Size of a box, 0 for a circle. */
+  /** Size of a box, or of the bounding box of a polygon, 0 for a circle. */
   readonly width: number;
   readonly height: number;
   readonly mass: number;
@@ -80,6 +86,8 @@ export interface Body {
   /** Called when another body stops overlapping this sensor. */
   onLeave?: ((other: Body) => void) | undefined;
   /** @internal */ inside: Set<Body>;
+  /** @internal Corners of a polygon around its centre of mass, in the body's own frame. */
+  local: Vector[];
   /** @internal */ invMass: number;
   /** @internal */ invInertia: number;
   /** @internal */ rest: { x: number; y: number; a: number; time: number };
@@ -181,6 +189,84 @@ function corner(body: Body, k: number): Vector {
   return { x: body.x + lx * c - ly * s, y: body.y + lx * s + ly * c };
 }
 
+/** Corner k of a box or polygon in world space. */
+function vertex(body: Body, k: number): Vector {
+  if (body.shape === "box") return corner(body, k);
+  const v = body.local[k] as Vector;
+  const c = Math.cos(body.angle);
+  const s = Math.sin(body.angle);
+  return { x: body.x + v.x * c - v.y * s, y: body.y + v.x * s + v.y * c };
+}
+
+function corners(body: Body): number {
+  return body.shape === "box" ? 4 : body.local.length;
+}
+
+function outline(body: Body): Vector[] {
+  return Array.from({ length: corners(body) }, (_, k) => vertex(body, k));
+}
+
+/** Area, centre of mass and second moment per unit mass of a polygon given with either winding. */
+function measurePolygon(points: readonly Vector[]) {
+  let area = 0;
+  let cx = 0;
+  let cy = 0;
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i] as Vector;
+    const q = points[(i + 1) % points.length] as Vector;
+    const cross = p.x * q.y - q.x * p.y;
+    area += cross / 2;
+    cx += ((p.x + q.x) * cross) / 6;
+    cy += ((p.y + q.y) * cross) / 6;
+  }
+  cx /= area;
+  cy /= area;
+  // Moment of inertia per unit mass about the centre of mass.
+  let numerator = 0;
+  let denominator = 0;
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i] as Vector;
+    const q = points[(i + 1) % points.length] as Vector;
+    const px = p.x - cx;
+    const py = p.y - cy;
+    const qx = q.x - cx;
+    const qy = q.y - cy;
+    const cross = Math.abs(px * qy - qx * py);
+    numerator += cross * (px * px + py * py + (px * qx + py * qy) + (qx * qx + qy * qy));
+    denominator += cross;
+  }
+  return { area: Math.abs(area), cx, cy, inertia: numerator / (6 * denominator) };
+}
+
+/** The convex hull of some points (monotone chain), in the same winding as boxes. */
+function convexHull(points: readonly Vector[]): Vector[] {
+  const sorted = [...points].sort((p, q) => p.x - q.x || p.y - q.y);
+  const turn = (o: Vector, p: Vector, q: Vector) =>
+    (p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x);
+  const build = (input: Vector[]) => {
+    const out: Vector[] = [];
+    for (const p of input) {
+      while (
+        out.length >= 2 &&
+        turn(out[out.length - 2] as Vector, out[out.length - 1] as Vector, p) <= 0
+      )
+        out.pop();
+      out.push(p);
+    }
+    out.pop();
+    return out;
+  };
+  return [...build(sorted), ...build([...sorted].reverse())];
+}
+
+/** The corners of a regular polygon, e.g. `regularPolygon(6, 40)` for a hexagon. */
+export function regularPolygon(sides: number, radius: number, rotation = 0): Vector[] {
+  return Array.from({ length: sides }, (_, i) => {
+    const a = rotation + (i / sides) * Math.PI * 2;
+    return { x: Math.cos(a) * radius, y: Math.sin(a) * radius };
+  });
+}
+
 /** Half the extent of a box along a direction. */
 function reach(body: Body, nx: number, ny: number): number {
   const c = Math.cos(body.angle);
@@ -227,6 +313,8 @@ export class World {
   /** Speed that gravity adds per step along the normal of a floor contact, in px/s. */
   #weight = 0;
   #down: Vector = { x: 0, y: 1 };
+  /** Bounce speed of each face contact, set in the first solver pass of a step. */
+  #bounce = new Map<Body, Map<Body, number>>();
 
   constructor(options: WorldOptions = {}) {
     this.#options = options;
@@ -263,23 +351,56 @@ export class World {
 
   add(options: BodyOptions): Body {
     const ppm = this.pixelsPerMeter;
-    const box = options.width !== undefined && options.height !== undefined;
-    const w = options.width ?? 0;
-    const h = options.height ?? 0;
-    const r = box ? Math.hypot(w, h) / 2 : (options.radius ?? 0);
-    if (!box && !(r > 0)) throw new Error("A body needs a radius, or a width and a height.");
-    const area = box ? (w / ppm) * (h / ppm) : Math.PI * (r / ppm) ** 2;
+    const polygon = options.vertices !== undefined;
+    const box = !polygon && options.width !== undefined && options.height !== undefined;
+    let w = options.width ?? 0;
+    let h = options.height ?? 0;
+    let local: Vector[] = [];
+    let centre = { x: options.x, y: options.y };
+    let spread = 0;
+    let moment = 0;
+    let shapeArea = 0;
+    if (polygon) {
+      const given = convexHull(options.vertices as readonly Vector[]);
+      if (given.length < 3) throw new Error("A polygon needs at least three vertices.");
+      const m = measurePolygon(given);
+      if (!(m.area > 0)) throw new Error("The vertices of a polygon must enclose an area.");
+      // The same winding as boxes, so the outward normal of every edge is (dy, -dx).
+      const signed = given.reduce((sum, p, i) => {
+        const q = given[(i + 1) % given.length] as Vector;
+        return sum + (p.x * q.y - q.x * p.y);
+      }, 0);
+      const ordered = signed < 0 ? [...given].reverse() : [...given];
+      local = ordered.map((p) => ({ x: p.x - m.cx, y: p.y - m.cy }));
+      centre = { x: options.x + m.cx, y: options.y + m.cy };
+      spread = Math.max(...local.map((p) => Math.hypot(p.x, p.y)));
+      const xs = local.map((p) => p.x);
+      const ys = local.map((p) => p.y);
+      w = Math.max(...xs) - Math.min(...xs);
+      h = Math.max(...ys) - Math.min(...ys);
+      moment = m.inertia;
+      shapeArea = m.area;
+    }
+    const r = polygon ? spread : box ? Math.hypot(w, h) / 2 : (options.radius ?? 0);
+    if (!polygon && !box && !(r > 0)) {
+      throw new Error("A body needs a radius, a width and a height, or vertices.");
+    }
+    const area = polygon
+      ? shapeArea / ppm ** 2
+      : box
+        ? (w / ppm) * (h / ppm)
+        : Math.PI * (r / ppm) ** 2;
     const mass = options.fixed
       ? Number.POSITIVE_INFINITY
       : (options.mass ?? area * (options.density ?? 1));
     const body: Body = {
-      x: options.x,
-      y: options.y,
+      x: centre.x,
+      y: centre.y,
       vx: options.vx ?? 0,
       vy: options.vy ?? 0,
       angle: options.angle ?? 0,
       spin: options.spin ?? 0,
-      shape: box ? "box" : "circle",
+      shape: polygon ? "polygon" : box ? "box" : "circle",
       radius: r,
       width: w,
       height: h,
@@ -293,12 +414,25 @@ export class World {
       onEnter: options.onEnter,
       onLeave: options.onLeave,
       inside: new Set(),
+      local,
       invMass: options.fixed ? 0 : 1 / mass,
       // Solid disc: I = ½·m·r², solid box: I = m·(w² + h²)/12, with lengths in pixels so
       // impulses stay in pixel units.
-      invInertia: options.fixed ? 0 : box ? 12 / (mass * (w * w + h * h)) : 2 / (mass * r * r),
-      rest: { x: options.x, y: options.y, a: 0, time: 0 },
+      invInertia: options.fixed
+        ? 0
+        : polygon
+          ? 1 / (mass * moment)
+          : box
+            ? 12 / (mass * (w * w + h * h))
+            : 2 / (mass * r * r),
+      rest: { x: centre.x, y: centre.y, a: 0, time: 0 },
     };
+    if (polygon && options.element) {
+      // Turn around the centre of mass, which is not the middle of the bounding box.
+      const minX = Math.min(...local.map((p) => p.x));
+      const minY = Math.min(...local.map((p) => p.y));
+      options.element.style.transformOrigin = `${-minX}px ${-minY}px`;
+    }
     this.bodies.push(body);
     this.#draw(body);
     this.#run();
@@ -425,6 +559,13 @@ export class World {
         const lx = (x - body.x) * c + (y - body.y) * s;
         const ly = -(x - body.x) * s + (y - body.y) * c;
         if (Math.abs(lx) <= body.width / 2 && Math.abs(ly) <= body.height / 2) return body;
+      } else if (body.shape === "polygon") {
+        const points = outline(body);
+        const inside = points.every((p, i) => {
+          const q = points[(i + 1) % points.length] as Vector;
+          return (x - p.x) * (q.y - p.y) - (y - p.y) * (q.x - p.x) <= 0;
+        });
+        if (inside) return body;
       } else if ((body.x - x) ** 2 + (body.y - y) ** 2 <= body.radius ** 2) return body;
     }
     return null;
@@ -595,8 +736,12 @@ export class World {
   #draw(body: Body): void {
     const el = body.element;
     if (!el) return;
-    const w = body.shape === "box" ? body.width / 2 : body.radius;
-    const h = body.shape === "box" ? body.height / 2 : body.radius;
+    let w = body.shape === "box" ? body.width / 2 : body.radius;
+    let h = body.shape === "box" ? body.height / 2 : body.radius;
+    if (body.shape === "polygon") {
+      w = -Math.min(...body.local.map((p) => p.x));
+      h = -Math.min(...body.local.map((p) => p.y));
+    }
     el.style.transform = `translate3d(${body.x - w}px, ${body.y - h}px, 0) rotate(${body.angle}rad)`;
   }
 
@@ -637,6 +782,7 @@ export class World {
       body.angle += body.spin * dt;
     }
 
+    this.#bounce.clear();
     const bodies = [...this.bodies].sort((a, b) => a.x - a.radius - (b.x - b.radius));
     const restingSpeed = 0.5 * ppm;
     for (let pass = 0; pass < this.iterations; pass++) {
@@ -686,22 +832,187 @@ export class World {
       );
       return;
     }
-    // A box always comes first, so the normal points from the box to the other body.
-    const flip = a.shape === "circle";
+    // A box or polygon always comes first, so the normal points from it to the other body.
+    const flip = a.shape === "circle" || (a.shape === "box" && b.shape === "polygon");
     const first = flip ? b : a;
     const second = flip ? a : b;
-    const m =
-      second.shape === "circle" ? this.#boxCircle(first, second) : this.#boxBox(first, second);
+    const m = this.#manifold(first, second);
     if (!m) return;
     const share = m.points.length > 1 ? 0.5 : 1;
-    // Several points share the push apart; every point is checked again in the next pass.
-    for (const p of m.points) {
-      const nx = flip ? -m.nx : m.nx;
-      const ny = flip ? -m.ny : m.ny;
-      const ra = flip ? { x: p.x - b.x, y: p.y - b.y } : { x: p.x - a.x, y: p.y - a.y };
-      const rb = flip ? { x: p.x - a.x, y: p.y - a.y } : { x: p.x - b.x, y: p.y - b.y };
-      this.#contact(a, b, nx, ny, p.depth, ra.x, ra.y, rb.x, rb.y, restingSpeed, report, share);
+    const nx = flip ? -m.nx : m.nx;
+    const ny = flip ? -m.ny : m.ny;
+    let goal: number | undefined;
+    if (m.points.length > 1) {
+      // Both points of a face contact bounce at the same speed, taken from the first pass, so
+      // the impulses balance instead of the first point spinning the body.
+      const inner = this.#bounce.get(a) ?? new Map<Body, number>();
+      this.#bounce.set(a, inner);
+      if (report) {
+        const mx = m.points.reduce((sum, p) => sum + p.x, 0) / m.points.length;
+        const my = m.points.reduce((sum, p) => sum + p.y, 0) / m.points.length;
+        const speed = (body: Body, o: "x" | "y") =>
+          o === "x" ? body.vx - body.spin * (my - body.y) : body.vy + body.spin * (mx - body.x);
+        const vn = (speed(b, "x") - speed(a, "x")) * nx + (speed(b, "y") - speed(a, "y")) * ny;
+        goal = -vn < restingSpeed ? 0 : -Math.min(a.restitution, b.restitution) * vn;
+        inner.set(b, goal);
+      } else goal = inner.get(b) ?? 0;
     }
+    // Several points share the push apart. A face contact can vanish after the first pass, so its
+    // points are solved a few times against each other right away, which balances them.
+    const rounds = m.points.length > 1 ? 4 : 1;
+    // Impulses already given at each point, so a later point can take some of it back.
+    const given = m.points.map(() => ({ jn: 0 }));
+    for (let round = 0; round < rounds; round++) {
+      for (const [index, p] of m.points.entries()) {
+        const ra = flip ? { x: p.x - b.x, y: p.y - b.y } : { x: p.x - a.x, y: p.y - a.y };
+        const rb = flip ? { x: p.x - a.x, y: p.y - a.y } : { x: p.x - b.x, y: p.y - b.y };
+        const depth = round === 0 ? p.depth : 0;
+        this.#contact(
+          a,
+          b,
+          nx,
+          ny,
+          depth,
+          ra.x,
+          ra.y,
+          rb.x,
+          rb.y,
+          restingSpeed,
+          report && round === 0,
+          share,
+          goal,
+          m.points.length > 1 ? given[index] : undefined,
+        );
+      }
+    }
+  }
+
+  /** Contact between a box or polygon and a second body, normal from the first to the second. */
+  #manifold(first: Body, second: Body): Manifold | null {
+    if (second.shape === "circle") {
+      return first.shape === "polygon"
+        ? this.#polyCircle(first, second)
+        : this.#boxCircle(first, second);
+    }
+    return first.shape === "box" && second.shape === "box"
+      ? this.#boxBox(first, second)
+      : this.#polyPoly(first, second);
+  }
+
+  #polyCircle(poly: Body, circle: Body): Manifold | null {
+    const points = outline(poly);
+    let inside = true;
+    let deepest = Number.NEGATIVE_INFINITY;
+    let face = { x: 0, y: 0 };
+    let nearest = Number.POSITIVE_INFINITY;
+    let near = { x: 0, y: 0 };
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i] as Vector;
+      const q = points[(i + 1) % points.length] as Vector;
+      const ex = q.x - p.x;
+      const ey = q.y - p.y;
+      const length = Math.hypot(ex, ey) || 1e-9;
+      const nx = ey / length;
+      const ny = -ex / length;
+      const side = (circle.x - p.x) * nx + (circle.y - p.y) * ny;
+      if (side > 0) inside = false;
+      if (side > deepest) {
+        deepest = side;
+        face = { x: nx, y: ny };
+      }
+      // Closest point of the edge to the centre.
+      const t = Math.max(
+        0,
+        Math.min(1, ((circle.x - p.x) * ex + (circle.y - p.y) * ey) / (length * length)),
+      );
+      const cx = p.x + ex * t;
+      const cy = p.y + ey * t;
+      const d = Math.hypot(circle.x - cx, circle.y - cy);
+      if (d < nearest) {
+        nearest = d;
+        near = { x: cx, y: cy };
+      }
+    }
+    if (inside) {
+      // The centre is inside: leave through the nearest face.
+      const depth = circle.radius - deepest;
+      const qx = circle.x - face.x * deepest;
+      const qy = circle.y - face.y * deepest;
+      return { nx: face.x, ny: face.y, points: [{ x: qx, y: qy, depth }] };
+    }
+    if (nearest >= circle.radius) return null;
+    const nx = nearest > 1e-9 ? (circle.x - near.x) / nearest : face.x;
+    const ny = nearest > 1e-9 ? (circle.y - near.y) / nearest : face.y;
+    return { nx, ny, points: [{ x: near.x, y: near.y, depth: circle.radius - nearest }] };
+  }
+
+  /** Separating axis test on the edge normals of both shapes, then the corners inside the other. */
+  #polyPoly(a: Body, b: Body): Manifold | null {
+    const pa = outline(a);
+    const pb = outline(b);
+    const normals = (points: Vector[]) =>
+      points.map((p, i) => {
+        const q = points[(i + 1) % points.length] as Vector;
+        const length = Math.hypot(q.x - p.x, q.y - p.y) || 1e-9;
+        return { x: (q.y - p.y) / length, y: -(q.x - p.x) / length };
+      });
+    const along = (points: Vector[], n: Vector) => {
+      let lo = Number.POSITIVE_INFINITY;
+      let hi = Number.NEGATIVE_INFINITY;
+      for (const p of points) {
+        const d = p.x * n.x + p.y * n.y;
+        if (d < lo) lo = d;
+        if (d > hi) hi = d;
+      }
+      return { lo, hi };
+    };
+    let best = Number.POSITIVE_INFINITY;
+    let n: Vector = { x: 1, y: 0 };
+    for (const m of normals(pa)) {
+      const depth = along(pa, m).hi - along(pb, m).lo;
+      if (depth <= 0) return null;
+      if (depth < best - 0.05) {
+        best = depth;
+        n = m;
+      }
+    }
+    for (const m of normals(pb)) {
+      const depth = along(pb, m).hi - along(pa, m).lo;
+      if (depth <= 0) return null;
+      if (depth < best - 0.05) {
+        best = depth;
+        n = { x: -m.x, y: -m.y };
+      }
+    }
+    const inside = (points: Vector[], p: Vector) =>
+      points.every((v, i) => {
+        const q = points[(i + 1) % points.length] as Vector;
+        const length = Math.hypot(q.x - v.x, q.y - v.y) || 1e-9;
+        return ((p.x - v.x) * (q.y - v.y) - (p.y - v.y) * (q.x - v.x)) / length <= BOX_SLOP + 0.5;
+      });
+    const maxA = along(pa, n).hi;
+    const minB = along(pb, n).lo;
+    const found: Manifold["points"] = [];
+    for (const p of pb) {
+      if (inside(pa, p)) {
+        const depth = maxA - (p.x * n.x + p.y * n.y);
+        if (depth > 0) found.push({ ...p, depth });
+      }
+    }
+    for (const q of pa) {
+      if (inside(pb, q)) {
+        const depth = q.x * n.x + q.y * n.y - minB;
+        if (depth > 0) found.push({ ...q, depth });
+      }
+    }
+    found.sort((p, q) => q.depth - p.depth);
+    if (found.length === 0) {
+      let support = pa[0] as Vector;
+      for (const p of pa)
+        if (p.x * n.x + p.y * n.y > support.x * n.x + support.y * n.y) support = p;
+      found.push({ x: support.x, y: support.y, depth: best });
+    }
+    return { nx: n.x, ny: n.y, points: found.slice(0, 2) };
   }
 
   #boxCircle(box: Body, circle: Body): Manifold | null {
@@ -919,9 +1230,8 @@ export class World {
     const sum = a.radius + b.radius;
     if (dx * dx + dy * dy >= sum * sum) return false;
     if (a.shape === "circle" && b.shape === "circle") return true;
-    if (a.shape === "circle") return this.#boxCircle(b, a) !== null;
-    if (b.shape === "circle") return this.#boxCircle(a, b) !== null;
-    return this.#boxBox(a, b) !== null;
+    const flip = a.shape === "circle" || (a.shape === "box" && b.shape === "polygon");
+    return this.#manifold(flip ? b : a, flip ? a : b) !== null;
   }
 
   #spring(link: Link, dt: number): void {
@@ -966,6 +1276,8 @@ export class World {
     restingSpeed: number,
     report: boolean,
     share: number,
+    bounce?: number,
+    given?: { jn: number },
   ): void {
     const speed = (body: Body | null, rx: number, ry: number, o: "x" | "y") =>
       body ? (o === "x" ? body.vx - body.spin * ry : body.vy + body.spin * rx) : 0;
@@ -1008,9 +1320,22 @@ export class World {
     const crossBn = rbx * ny - rby * nx;
     const kn = inv0 + crossAn * crossAn * iia + crossBn * crossBn * iib;
     let jn = 0;
-    if (vn < 0) {
-      const e = -vn < restingSpeed ? 0 : Math.min(a ? a.restitution : 1, b.restitution);
-      jn = (-(1 + e) * vn) / kn;
+    // A face contact aims for the same bounce speed at both points; others from their own speed.
+    const goal =
+      bounce !== undefined
+        ? bounce
+        : vn < 0
+          ? -(-vn < restingSpeed ? 0 : Math.min(a ? a.restitution : 1, b.restitution)) * vn
+          : 0;
+    if (given) {
+      // Never pull, but give back what an earlier point of the same face already pushed.
+      const next = Math.max(given.jn + (goal - vn) / kn, 0);
+      jn = next - given.jn;
+      given.jn = next;
+    } else if (vn < goal || (bounce === undefined && vn < 0)) {
+      jn = (goal - vn) / kn;
+    }
+    if (jn !== 0) {
       if (a) {
         a.vx -= jn * nx * ima;
         a.vy -= jn * ny * ima;
@@ -1033,8 +1358,9 @@ export class World {
     const crossBt = rbx * ty - rby * tx;
     const kt = inv0 + crossAt * crossAt * iia + crossBt * crossBt * iib;
     const mu = Math.sqrt((a ? a.friction : 1) * b.friction);
+    const pushed = given ? given.jn : jn;
     const support =
-      jn > 0 ? jn : (this.#weight * Math.abs(nx * this.#down.x + ny * this.#down.y)) / kn;
+      pushed > 0 ? pushed : (this.#weight * Math.abs(nx * this.#down.x + ny * this.#down.y)) / kn;
     // Slower than a few px/s is static friction: the surfaces stick instead of creeping.
     const jt =
       Math.abs(vt) < STICK_SPEED
@@ -1050,8 +1376,8 @@ export class World {
     b.spin += jt * crossBt * iib;
     // Resting boxes rock a little between their corners; a touch of damping calms that.
     if (-vn < restingSpeed) {
-      if (a?.shape === "box" && Math.abs(a.spin) < 2) a.spin *= BOX_REST_DAMPING;
-      if (b.shape === "box" && Math.abs(b.spin) < 2) b.spin *= BOX_REST_DAMPING;
+      if (a && a.shape !== "circle" && Math.abs(a.spin) < 2) a.spin *= BOX_REST_DAMPING;
+      if (b.shape !== "circle" && Math.abs(b.spin) < 2) b.spin *= BOX_REST_DAMPING;
     }
     if (vn >= 0) return;
 
@@ -1067,9 +1393,9 @@ export class World {
   }
 
   #walls(body: Body, walls: Rect, restingSpeed: number, report: boolean): void {
-    if (body.shape === "box") {
+    if (body.shape !== "circle") {
       // Each corner that pokes through a wall pushes back, so boxes can rest on an edge or tip.
-      for (let k = 0; k < 4; k++) {
+      for (let k = 0; k < corners(body); k++) {
         const wall = (nx: number, ny: number, depth: number, p: Vector) =>
           this.#contact(
             null,
@@ -1085,13 +1411,13 @@ export class World {
             report,
             0.5,
           );
-        let p = corner(body, k);
+        let p = vertex(body, k);
         if (p.y > walls.bottom) wall(0, -1, p.y - walls.bottom, p);
-        p = corner(body, k);
+        p = vertex(body, k);
         if (p.y < walls.top) wall(0, 1, walls.top - p.y, p);
-        p = corner(body, k);
+        p = vertex(body, k);
         if (p.x < walls.left) wall(1, 0, walls.left - p.x, p);
-        p = corner(body, k);
+        p = vertex(body, k);
         if (p.x > walls.right) wall(-1, 0, p.x - walls.right, p);
       }
       return;

@@ -13,6 +13,8 @@
         "guides/scroller",
         "guides/equations-of-motion",
         "guides/react",
+        "guides/vue",
+        "guides/svelte",
         "guides/reduced-motion"
       ]
     },

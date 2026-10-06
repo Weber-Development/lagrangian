@@ -10,7 +10,7 @@
     "build": "pnpm -r --filter './packages/**' run build",
     "test": "pnpm -r --filter './packages/**' run test",
     "size": "pnpm --filter @sweberdev/lagrangian run size",
-    "check:packages": "attw --pack packages/core --profile node16 && attw --pack packages/react --profile node16",
+    "check:packages": "attw --pack packages/core --profile node16 && attw --pack packages/react --profile node16 && attw --pack packages/vue --profile node16 && attw --pack packages/svelte --profile node16",
     "typecheck": "pnpm -r --filter './packages/**' run typecheck",
     "lint": "biome check .",
     "format": "biome format --write .",
