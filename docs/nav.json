@@ -25,6 +25,7 @@
         "pro/sortable",
         "pro/blocks",
         "pro/stack",
+        "pro/board",
         "pro/effects"
       ]
     },
