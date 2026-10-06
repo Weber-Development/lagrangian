@@ -1,0 +1,23 @@
+{
+  "sections": [
+    {
+      "label": "Start",
+      "items": ["introduction", "getting-started"]
+    },
+    {
+      "label": "Guides",
+      "items": [
+        "guides/springs",
+        "guides/drag-and-throw",
+        "guides/world",
+        "guides/equations-of-motion",
+        "guides/react",
+        "guides/reduced-motion"
+      ]
+    },
+    {
+      "label": "Reference",
+      "items": ["reference/api"]
+    }
+  ]
+}
