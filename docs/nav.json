@@ -31,12 +31,13 @@
         "pro/popover",
         "pro/effects",
         "pro/recipes",
-        "pro/accessibility"
+        "pro/accessibility",
+        "pro/migration"
       ]
     },
     {
       "label": "Reference",
-      "items": ["reference/api"]
+      "items": ["reference/api", "reference/pro-api"]
     }
   ]
 }
