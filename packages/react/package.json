@@ -1,6 +1,6 @@
 {
   "name": "@sweberdev/lagrangian-react",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "description": "React hooks for Lagrangian: physical springs, draggable elements with inertia and a 2D physics world with gravity and collisions.",
   "license": "MIT",
   "author": "Seya Weber (https://github.com/sxwxbxr)",

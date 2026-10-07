@@ -1,5 +1,11 @@
 # @sweberdev/lagrangian
 
+## 1.0.0
+
+### Major Changes
+
+- df1611d: 1.0.0: the public API is stable and follows semver from here on. Works with Lagrangian Pro 1.x. The root build, test and typecheck scripts now also run in Windows shells.
+
 ## 0.4.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@sweberdev/lagrangian-svelte",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "description": "Svelte actions and stores for Lagrangian: physical springs, draggable elements with inertia, scroll areas and a 2D physics world.",
   "license": "MIT",
   "author": "Seya Weber (https://github.com/sxwxbxr)",
