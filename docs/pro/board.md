@@ -87,3 +87,7 @@ const kanban = useBoard({ commit });
 const [ref, viewer] = useZoom<HTMLDivElement>({ max: 8 });
 <div ref={ref}><img src="map.png" alt="Map" /></div>
 ```
+
+## Scrolling while you drag
+
+Like in sortable lists, a board scrolls the window or the nearest scrollable parent while a card is held near its edge. `autoScroll: { edge, speed }` tunes it, `autoScroll: false` turns it off.

@@ -54,3 +54,7 @@ const list = useSortable({ onReorder: (from, to) => setItems((x) => arrayMove(x,
 const grid = useLayoutTransition<HTMLDivElement>([filter]);
 <div ref={grid}>{visible.map((p) => <Card key={p.id} />)}</div>
 ```
+
+## Scrolling while you drag
+
+Hold an item near the edge of the window or of a scrollable parent and the list scrolls by itself, faster the closer you get to the edge. The dragged item stays under the pointer and the slot is recomputed while the page moves. `autoScroll: { edge: 56, speed: 900 }` tunes it (pixels and pixels per second), `autoScroll: false` turns it off.

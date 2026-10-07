@@ -28,7 +28,10 @@
         "pro/blocks",
         "pro/stack",
         "pro/board",
-        "pro/effects"
+        "pro/popover",
+        "pro/effects",
+        "pro/recipes",
+        "pro/accessibility"
       ]
     },
     {
