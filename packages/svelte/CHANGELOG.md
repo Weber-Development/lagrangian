@@ -1,5 +1,16 @@
 # @sweberdev/lagrangian-svelte
 
+## 2.0.0-next.0
+
+### Major Changes
+
+- 4d7bdd2: 2.0: the world is deterministic. Sleeping and sensors are decided in every simulation step instead of once per frame, so a run no longer depends on the frame rate. New: `seed` and `world.random()`, `world.advance()`, `world.time`, `world.snapshot()`, `world.restore()` and `world.hash()`. `legacyStepping: true` keeps the 1.x timing for one more minor version. Node 22 or newer is required to build. See docs/migrating-to-2.md.
+
+### Patch Changes
+
+- Updated dependencies [4d7bdd2]
+  - @sweberdev/lagrangian@2.0.0-next.0
+
 ## 1.0.0
 
 ### Major Changes

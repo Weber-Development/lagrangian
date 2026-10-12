@@ -7,5 +7,7 @@
     "@sweberdev/lagrangian-svelte": "1.0.0",
     "@sweberdev/lagrangian-vue": "1.0.0"
   },
-  "changesets": []
+  "changesets": [
+    "deterministic-world"
+  ]
 }
