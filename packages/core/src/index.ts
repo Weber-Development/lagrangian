@@ -55,5 +55,6 @@ export {
   type Vector,
   World,
   type WorldOptions,
+  type WorldSnapshot,
   world,
 } from "./world";

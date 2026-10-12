@@ -86,6 +86,30 @@ A sensor overlaps other bodies instead of colliding with them. It reports bodies
 
 Bodies fall asleep one by one when they have moved less than a few pixels for a second (`body.sleeping`), so a big pile stays calm while a single ball keeps rolling. A sleeping body is woken when something hits it, when it is grabbed, pushed or linked to a moving body, or when the body below it is removed. When every body sleeps, the world stops its frame loop and uses no CPU. After changing bodies by hand call `world.wake()`, or `world.wake(body)` for one of them.
 
+## Reproducible runs
+
+Since 2.0 the world is deterministic. It always simulates in fixed steps (240 per second unless you set `rate`), and sleeping and sensors are decided in every step, so the same bodies, inputs and `seed` give the same numbers at 60 Hz, at 144 Hz and on another machine.
+
+```ts
+const world = new World({ seed: 7, bounds });
+world.add({ x: 120 + world.random() * 200, y: 40, radius: 20 });
+
+world.advance(2); // simulate two seconds now: no loop, no drawing, no onFrame
+const saved = world.snapshot(); // plain JSON, safe to store
+world.advance(3);
+const after = world.hash(); // "9c1f0a4e"
+
+world.restore(saved); // same bodies in the same order
+world.advance(3);
+world.hash() === after; // true
+```
+
+- `world.advance(seconds)` is for tests, server-side runs and replays. `world.time` counts simulated seconds.
+- `world.random()` returns numbers in [0, 1) from the seed. Use it instead of `Math.random()` wherever a run has to repeat.
+- `world.snapshot()` and `world.restore()` cover bodies, the clock and the generator. Joints, links, bounds and grabs are set up in code and are not part of a snapshot.
+- `world.hash()` condenses the state of all bodies into eight characters, handy as a regression check in tests.
+- To replay a user's input, record when `grab`, `push` and similar calls happened in `world.time` and repeat them at the same times while calling `advance` in small slices.
+
 ## Limits
 
 Bodies are circles, boxes and convex polygons. This keeps the engine small; it is meant for playful interfaces, not games with concave shapes or thousands of bodies. A box needs `width` and `height`, a polygon `vertices`, instead of `radius`; `body.radius` is then the radius of the circle around it.

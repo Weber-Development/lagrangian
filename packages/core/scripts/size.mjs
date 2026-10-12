@@ -8,7 +8,7 @@ const cases = [
   ["spring + value", `export { spring, value } from "${dist}index.js";`, 2560],
   ["animate + draggable", `export { animate, draggable } from "${dist}index.js";`, 4352],
   ["scroller", `export { scroller } from "${dist}index.js";`, 4864],
-  ["world", `export { World } from "${dist}index.js";`, 7680],
+  ["world", `export { World } from "${dist}index.js";`, 8192],
 ];
 let failed = false;
 for (const [name, contents, budget] of cases) {
