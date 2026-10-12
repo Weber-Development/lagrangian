@@ -29,6 +29,8 @@
         "pro/stack",
         "pro/board",
         "pro/popover",
+        "pro/stack-nav",
+        "pro/gestures",
         "pro/effects",
         "pro/recipes",
         "pro/accessibility",

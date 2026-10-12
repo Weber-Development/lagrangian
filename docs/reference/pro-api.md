@@ -146,6 +146,18 @@ measure(targets: Targets): Snapshot
 | --- | --- | --- |
 | `play` | `(spring?: SpringOptions): void` | Springs every measured element from where it was to where it is now. |
 
+## contend
+
+```ts
+contend(event: PointerEvent, contender: Contender): void
+```
+
+## contested
+
+```ts
+contested(pointerId: number): boolean
+```
+
 ## indicator
 
 ```ts
@@ -333,6 +345,37 @@ impactSound(options?: ImpactSoundOptions): ImpactSound
 | `play` | `(strength: number, size?: number): boolean` | Plays one impact. `strength` 0 to 1, `size` in pixels (a radius; default 24). Returns false when it was skipped (muted, too quiet, no audio, or all voices busy). |
 | `collide` | `(a: Body, b: Body \| null, speed: number) => void` | Use as a World's `onCollide`: `new World({ onCollide: sound.collide })`. |
 | `unlock` | `(): Promise<void>` | Resumes audio after a user gesture. Called automatically on the first pointer or key press. |
+| `destroy` | `(): void` |  |
+
+## stackNav
+
+```ts
+stackNav(root: HTMLElement, options?: StackNavOptions): StackNav
+```
+
+| Option | Type | |
+| --- | --- | --- |
+| `edge` | `number` | Width in pixels of the strip at the left edge where a swipe back starts. 0 turns it off. Default 24. |
+| `parallax` | `number` | How far the page below moves while the top page slides, as a fraction of the width. Default 0.3. |
+| `shared` | `string` | Attribute that pairs elements of two pages for a shared transition. Default `data-shared`. |
+| `flick` | `number` | Speed in px/s from which a swipe back always completes. Default 500. |
+| `spring` | `SpringOptions` | Spring for page transitions. |
+| `remove` | `boolean` | Remove a page from the DOM after it was popped. Set false when a framework owns the element. Default true. |
+| `backKey` | `boolean` | Go back with Alt+ArrowLeft. Default true. |
+| `announce` | `(page: HTMLElement) => string \| null \| undefined` | Text announced to screen readers after a transition. Default the page's `aria-label`, `data-title` or first heading. |
+| `onChange` | `(depth: number, direction: "push" \| "pop") => void` | Called when the transition starts, with the new depth and the direction. |
+| `onPop` | `(page: HTMLElement) => void` | Called after a popped page left, with the element. |
+
+| Member | Type | |
+| --- | --- | --- |
+| `depth` | `number` | Number of pages in the stack. |
+| `top` | `HTMLElement \| null` | The page on top. |
+| `pages` | `readonly HTMLElement[]` | All pages, the first at the bottom. |
+| `canGoBack` | `boolean` |  |
+| `dragging` | `boolean` | True while a swipe back is under the finger. |
+| `push` | `(page: HTMLElement): Promise<boolean>` | Slides a page in from the right. The element is added to the root if it is not in it yet. |
+| `pop` | `(): Promise<boolean>` | Slides the top page away to the right. Resolves false when there is nothing to go back to. |
+| `popTo` | `(depth: number): Promise<boolean>` | Pops until `depth` pages are left. |
 | `destroy` | `(): void` |  |
 
 ## swipeStack

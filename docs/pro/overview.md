@@ -15,6 +15,7 @@ reduced motion is respected throughout.
 | [Pull to refresh, carousel, drawer, dialog](blocks.md) | Four more blocks with throw physics, focus handling and keyboard support |
 | [Toasts, indicator, fall](stack.md) | A swipeable toast stack, a sliding tab indicator and a page effect that lets a section fall apart and come back |
 | [Board and zoom](board.md) | Drag to rearrange a grid or the columns of a board, and pinch, wheel and double tap zoom |
+| [Stack navigation](stack-nav.md) and [gestures](gestures.md) | Pages that slide and swipe back, shared elements that fly between pages, and a referee for nested gestures |
 | [Jelly, ropes and sounds](effects.md) | Squash and stretch from velocity, Verlet ropes, synthesized impact sounds |
 
 ## Packages
@@ -23,8 +24,10 @@ reduced motion is respected throughout.
 |---|---|
 | `@weber-development/lagrangian-pro` | All pieces, framework-free |
 | `@weber-development/lagrangian-pro-react` | React hooks (React 18 and 19, Strict Mode) |
+| `@weber-development/lagrangian-pro-vue` | Vue 3 composables (from 2.0) |
+| `@weber-development/lagrangian-pro-svelte` | Svelte actions (from 2.0) |
 
-Both need `@sweberdev/lagrangian` 0.1 or newer.
+All need `@sweberdev/lagrangian` 0.1 or newer; Lagrangian Pro 2 works with Lagrangian 1 and 2.
 
 ## Installation
 

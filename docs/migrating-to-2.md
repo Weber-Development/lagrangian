@@ -29,6 +29,15 @@ const world = new World({ bounds, legacyStepping: true });
 - `world.advance(seconds)`, `world.time`, `world.snapshot()`, `world.restore()` and `world.hash()`. See [Reproducible runs](guides/world).
 - Lagrangian Pro 1.0.1 and newer works with 2.x. Pro 1.0.0 declares a peer range below 2: update it first (`pnpm update @weber-development/lagrangian-pro`) or your package manager warns.
 
+## Lagrangian Pro 2.0
+
+Pro 2.0 is the same API plus new parts, so most projects only update the version. Two behaviours change:
+
+- **Parts start dragging after the finger moved a few pixels**, not on touch-down, so that a part around another one can find out who gets the finger. A tap no longer stops a running animation of a sheet, drawer or carousel until the finger moves. See [Gestures](pro/gestures.md).
+- **Nested parts hand over**: a carousel on its last slide passes a swipe outwards to the drawer or page around it, where 1.x moved both.
+
+New in Pro 2.0: [stack navigation](pro/stack-nav.md) (`stackNav`, `useStackNav`), the gesture referee `contend`, and the packages `@weber-development/lagrangian-pro-vue` and `@weber-development/lagrangian-pro-svelte`. Pro 1.0.1 and newer allow Lagrangian 2 in their peer range.
+
 ## Removed
 
 Nothing from the 1.x API was marked deprecated, so no export is removed.
