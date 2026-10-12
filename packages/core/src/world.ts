@@ -159,10 +159,43 @@ export interface WorldOptions {
   rate?: number;
   /** Collision solver passes per step. More gives steadier stacks. Default 4. */
   iterations?: number;
+  /**
+   * Seed for `world.random()`. Together with the fixed time step it makes a run reproducible:
+   * the same bodies, inputs and seed give the same numbers on every machine and frame rate.
+   * Default 1.
+   */
+  seed?: number;
+  /**
+   * Decide sleeping and sensor events once per animation frame, as 1.x did. By default they are
+   * decided in every simulation step, so a run no longer depends on the frame rate.
+   */
+  legacyStepping?: boolean;
   /** Called after every frame, e.g. to draw on a canvas. */
   onFrame?: (world: World) => void;
   /** Called when two bodies (or a body and a wall) hit with an impact speed in px/s. */
   onCollide?: (a: Body, b: Body | null, speed: number) => void;
+}
+
+/** The state of a world at one moment, see `world.snapshot()` and `world.restore()`. */
+export interface WorldSnapshot {
+  version: 1;
+  /** Simulated seconds. */
+  time: number;
+  /** Seconds that did not yet add up to a whole step. */
+  pending: number;
+  /** State of the random number generator. */
+  random: number;
+  /** One entry per body, in the order the bodies were added. */
+  bodies: {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    angle: number;
+    spin: number;
+    sleeping: boolean;
+    rest: { x: number; y: number; a: number; time: number };
+  }[];
 }
 
 export interface Grab {
@@ -308,6 +341,10 @@ export class World {
   #grabs = new Set<{ body: Body; target: Vector }>();
   #stopLoop: (() => void) | null = null;
   #pending = 0;
+  #busy = true;
+  #steps = 0;
+  #random: number;
+  readonly #legacy: boolean;
   #observer: ResizeObserver | null = null;
   #running = false;
   /** Speed that gravity adds per step along the normal of a floor contact, in px/s. */
@@ -324,6 +361,8 @@ export class World {
     this.rollingResistance = options.rollingResistance ?? 0.05;
     this.iterations = options.iterations ?? 4;
     this.#rate = options.rate ?? 240;
+    this.#random = (options.seed ?? 1) >>> 0;
+    this.#legacy = options.legacyStepping ?? false;
     this.setBounds(options.bounds ?? null);
   }
 
@@ -435,6 +474,7 @@ export class World {
     }
     this.bodies.push(body);
     this.#draw(body);
+    this.#busy = true;
     this.#run();
     return body;
   }
@@ -670,10 +710,12 @@ export class World {
       b.sleeping = false;
       b.rest = { x: b.x, y: b.y, a: b.angle * b.radius, time: 0 };
     }
+    this.#busy = true;
     this.#run();
   }
 
   #run(): void {
+    this.#busy = true;
     if (!this.#running || this.#stopLoop) return;
     this.#stopLoop = loop.add((dt) => this.#frame(dt));
   }
@@ -694,12 +736,24 @@ export class World {
       this.step(h);
       this.#pending -= h;
     }
-    this.#sense();
+    if (this.#legacy) {
+      this.#sense();
+      this.#busy = this.#settle(dt);
+    }
     for (const body of this.bodies) this.#draw(body);
     this.#options.onFrame?.(this);
+    if (!this.#busy) {
+      this.#stopLoop?.();
+      this.#stopLoop = null;
+    }
+  }
 
-    // A body sleeps when it has not moved more than a pixel for a second. Measuring displacement
-    // instead of speed ignores the tiny velocity that gravity adds to resting bodies every step.
+  /**
+   * A body sleeps when it has not moved more than a pixel for a second. Measuring displacement
+   * instead of speed ignores the tiny velocity that gravity adds to resting bodies every step.
+   * Returns false when nothing is left that moves.
+   */
+  #settle(dt: number): boolean {
     let busy = this.#grabs.size > 0;
     for (const { body } of this.#grabs) body.rest.time = 0;
     for (const body of this.bodies) {
@@ -722,10 +776,100 @@ export class World {
         body.spin = 0;
       } else busy = true;
     }
-    if (!busy) {
-      this.#stopLoop?.();
-      this.#stopLoop = null;
+    return busy;
+  }
+
+  /** Simulated seconds since the world was created. Counts steps, not frames. */
+  get time(): number {
+    return this.#steps / this.#rate;
+  }
+
+  /** A deterministic random number in [0, 1), from the world's seed. */
+  random(): number {
+    // mulberry32: small, fast and the same on every engine.
+    this.#random = (this.#random + 0x6d2b79f5) >>> 0;
+    let t = this.#random;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+
+  /**
+   * Simulates `seconds` right now, without the frame loop and without touching the page: no
+   * drawing and no `onFrame`. Use it for tests, server-side runs and replays. Returns the number
+   * of steps that ran.
+   */
+  advance(seconds: number): number {
+    const h = 1 / this.#rate;
+    this.#pending += seconds;
+    let n = 0;
+    while (this.#pending >= h - 1e-12) {
+      this.step(h);
+      this.#pending -= h;
+      n++;
     }
+    if (this.#pending < 0) this.#pending = 0;
+    return n;
+  }
+
+  /** The state of every body, the clock and the random generator, to store or compare. */
+  snapshot(): WorldSnapshot {
+    return {
+      version: 1,
+      time: this.time,
+      pending: this.#pending,
+      random: this.#random,
+      bodies: this.bodies.map((b) => ({
+        x: b.x,
+        y: b.y,
+        vx: b.vx,
+        vy: b.vy,
+        angle: b.angle,
+        spin: b.spin,
+        sleeping: b.sleeping,
+        rest: { ...b.rest },
+      })),
+    };
+  }
+
+  /**
+   * Puts the world back to a snapshot. The world must hold the same bodies in the same order
+   * (joints, links and bounds are not part of a snapshot).
+   */
+  restore(snapshot: WorldSnapshot): void {
+    if (snapshot.bodies.length !== this.bodies.length) {
+      throw new Error("The snapshot has a different number of bodies than the world.");
+    }
+    snapshot.bodies.forEach((state, i) => {
+      const body = this.bodies[i] as Body;
+      Object.assign(body, state, { rest: { ...state.rest } });
+      this.#draw(body);
+    });
+    this.#steps = Math.round(snapshot.time * this.#rate);
+    this.#pending = snapshot.pending;
+    this.#random = snapshot.random;
+    this.#busy = true;
+    this.#run();
+  }
+
+  /** A short hash of the state of all bodies. Two runs agree exactly when their hashes do. */
+  hash(): string {
+    let h = 0x811c9dc5;
+    const view = new DataView(new ArrayBuffer(8));
+    const add = (n: number) => {
+      view.setFloat64(0, n);
+      for (let i = 0; i < 8; i++) h = Math.imul(h ^ view.getUint8(i), 0x01000193) >>> 0;
+    };
+    for (const b of this.bodies) {
+      add(b.x);
+      add(b.y);
+      add(b.vx);
+      add(b.vy);
+      add(b.angle);
+      add(b.spin);
+      add(b.sleeping ? 1 : 0);
+    }
+    return h.toString(16).padStart(8, "0");
   }
 
   #isGrabbed(body: Body): boolean {
@@ -747,6 +891,15 @@ export class World {
 
   /** Advances the simulation by `dt` seconds. Called for you while the world runs. */
   step(dt: number): void {
+    this.#stepBodies(dt);
+    this.#steps++;
+    if (!this.#legacy) {
+      this.#sense();
+      this.#busy = this.#settle(dt);
+    }
+  }
+
+  #stepBodies(dt: number): void {
     const ppm = this.pixelsPerMeter;
     const gx = this.gravity.x * ppm;
     const gy = this.gravity.y * ppm;
