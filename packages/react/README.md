@@ -36,3 +36,13 @@ export function Playground() {
 ```
 
 Docs: [packages.sweber.dev/lagrangian/docs](https://packages.sweber.dev/lagrangian/docs). MIT © Seya Weber
+
+<!-- pro-promo -->
+## Lagrangian Pro
+
+Need more than the free package? **Lagrangian Pro** adds:
+
+- Ready-made physics components: bottom sheet, drawer, dialog, carousel, pull to refresh, sortable lists, swipe stack, ropes and more
+- Hooks and composables for React, Vue and Svelte
+
+Subscriptions from CHF 12 per month, or a one-time lifetime licence. [See what is included](https://packages.sweber.dev/lagrangian?utm_source=npm&utm_medium=readme&utm_campaign=pro)
