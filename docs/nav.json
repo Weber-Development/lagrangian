@@ -33,6 +33,8 @@
         "pro/gestures",
         "pro/effects",
         "pro/recipes",
+        "pro/ready-made",
+        "pro/spring-editor",
         "pro/accessibility",
         "pro/migration"
       ]
