@@ -251,24 +251,6 @@ pullToRefresh(container: HTMLElement, options: PullToRefreshOptions): PullToRefr
 | `refresh` | `(): Promise<void>` | Runs a refresh from code, e.g. for a keyboard button. Resolves when the content is back. |
 | `destroy` | `(): void` |  |
 
-## rope
-
-```ts
-rope(options: RopeOptions): Rope
-```
-
-| Option | Type | |
-| --- | --- | --- |
-| `from` | `Vector` | First point, pinned. In pixels. |
-| `to` | `Vector` | Last point. Pinned when `pinEnd` is true, otherwise only its starting place. |
-| `segments` | `number` | Number of segments. More is smoother and slower. Default 20. |
-| `length` | `number` | Rest length in pixels. Default 1.1 × the distance between `from` and `to`, or 200. |
-| `pinEnd` | `boolean` | Pin the last point as well, e.g. for a garland. Default false. |
-| `gravity` | `Vector` | Gravity in px/s². Default `{ x: 0, y: 2000 }`. |
-| `drag` | `number` | Fraction of velocity lost per second to air and internal friction. Default 0.8. |
-| `iterations` | `number` | Constraint passes per step. More is less stretchy. Default 20. |
-| `onFrame` | `(rope: Rope) => void` | Called after every frame, e.g. to draw. |
-
 ## sheet
 
 ```ts
@@ -296,6 +278,88 @@ sheet(element: HTMLElement, options?: SheetOptions): Sheet
 | `open` | `(index?: number): Promise<boolean>` | Opens at the given detent, default the first. |
 | `close` | `(): Promise<boolean>` |  |
 | `destroy` | `(): void` |  |
+
+## formSheet
+
+```ts
+formSheet(element: HTMLElement, options?: FormSheetOptions): FormSheet
+```
+
+| Member | Type | |
+| --- | --- | --- |
+| `sheet` | `Sheet` |  |
+| `dirty` | `boolean` | True once a field was changed and the form has not been submitted since. |
+| `submitting` | `boolean` |  |
+| `open` | `(index?: number): Promise<boolean>` |  |
+| `close` | `(): Promise<boolean>` | Closes, asking `confirmDiscard` first when there are changes. Resolves to whether it closed. |
+| `submit` | `(): Promise<boolean>` |  |
+| `destroy` | `(): void` |  |
+
+## lightbox
+
+```ts
+lightbox(grid: HTMLElement, options: LightboxOptions): Lightbox
+```
+
+| Option | Type | |
+| --- | --- | --- |
+| `viewer` | `HTMLElement` | The viewer: a fixed, full-screen element holding the track. Hidden until opened. |
+| `track` | `HTMLElement` | The element that moves between slides. Default the first child of the viewer. |
+| `backdrop` | `HTMLElement` | Fades with the viewer. Clicking it closes the lightbox. |
+| `items` | `string` | Which elements in the grid open the viewer. Default `[data-lightbox-item]`. |
+| `dismissDistance` | `number` | How far down a drag must go (px) or how fast (px/s) to close. Default 120 and 600. |
+| `dismissSpeed` | `number` |  |
+| `onChange` | `(index: number) => void` | Receives the index while it changes; use it to fill a counter or caption. |
+| `spring` | `SpringOptions` |  |
+
+| Member | Type | |
+| --- | --- | --- |
+| `open` | `boolean` |  |
+| `index` | `number` |  |
+| `carousel` | `Carousel` |  |
+| `show` | `(index: number): Promise<boolean>` |  |
+| `hide` | `(): Promise<boolean>` |  |
+| `destroy` | `(): void` |  |
+
+## swipeRows
+
+```ts
+swipeRows(list: HTMLElement, options?: SwipeRowsOptions): SwipeRows
+```
+
+| Option | Type | |
+| --- | --- | --- |
+| `rows` | `string` | Rows inside the list. Default the list's direct children. |
+| `content` | `string` | The part of a row that slides. Default the row's first child. |
+| `reveal` | `number` | Width in pixels the content slides open to. Default the width of the row's `[data-actions]`. |
+| `single` | `boolean` | Only one row open at a time. Default true. |
+| `onChange` | `(row: HTMLElement, open: boolean) => void` | Called when a row opens or closes. |
+| `spring` | `SpringOptions` |  |
+
+| Member | Type | |
+| --- | --- | --- |
+| `open` | `(row: HTMLElement): Promise<boolean>` |  |
+| `close` | `(row?: HTMLElement): Promise<boolean>` |  |
+| `isOpen` | `(row: HTMLElement): boolean` |  |
+| `destroy` | `(): void` |  |
+
+## rope
+
+```ts
+rope(options: RopeOptions): Rope
+```
+
+| Option | Type | |
+| --- | --- | --- |
+| `from` | `Vector` | First point, pinned. In pixels. |
+| `to` | `Vector` | Last point. Pinned when `pinEnd` is true, otherwise only its starting place. |
+| `segments` | `number` | Number of segments. More is smoother and slower. Default 20. |
+| `length` | `number` | Rest length in pixels. Default 1.1 × the distance between `from` and `to`, or 200. |
+| `pinEnd` | `boolean` | Pin the last point as well, e.g. for a garland. Default false. |
+| `gravity` | `Vector` | Gravity in px/s². Default `{ x: 0, y: 2000 }`. |
+| `drag` | `number` | Fraction of velocity lost per second to air and internal friction. Default 0.8. |
+| `iterations` | `number` | Constraint passes per step. More is less stretchy. Default 20. |
+| `onFrame` | `(rope: Rope) => void` | Called after every frame, e.g. to draw. |
 
 ## sortable
 
@@ -345,6 +409,42 @@ impactSound(options?: ImpactSoundOptions): ImpactSound
 | `play` | `(strength: number, size?: number): boolean` | Plays one impact. `strength` 0 to 1, `size` in pixels (a radius; default 24). Returns false when it was skipped (muted, too quiet, no audio, or all voices busy). |
 | `collide` | `(a: Body, b: Body \| null, speed: number) => void` | Use as a World's `onCollide`: `new World({ onCollide: sound.collide })`. |
 | `unlock` | `(): Promise<void>` | Resumes audio after a user gesture. Called automatically on the first pointer or key press. |
+| `destroy` | `(): void` |  |
+
+## springCurve
+
+```ts
+springCurve(options?: SpringOptions, samples?: number, limit?: number): SpringCurve
+```
+
+| Member | Type | |
+| --- | --- | --- |
+| `points` | `{ t: number; value: number; }[]` | Samples of the motion from 0 to 1, evenly spaced in time up to `duration`. |
+| `duration` | `number` | Seconds until the spring rests, capped at `limit` for springs that never do. |
+| `overshoot` | `number` | How far past the target it swings, as a fraction of the distance (0.1 is 10%). |
+| `dampingRatio` | `number` | Damping ratio: below 1 it bounces, 1 is critical, above 1 it creeps. |
+
+## springEditor
+
+```ts
+springEditor(root: HTMLElement, options?: SpringEditorOptions): SpringEditor
+```
+
+| Option | Type | |
+| --- | --- | --- |
+| `value` | `SpringOptions` | Spring to start with. Default `{ duration: 0.45, bounce: 0.12 }`. |
+| `mode` | `SpringEditorMode` |  |
+| `onChange` | `(options: SpringOptions) => void` | Called whenever a slider moves. |
+| `messages` | `Partial<SpringEditorMessages>` | Texts, for other languages. |
+
+| Member | Type | |
+| --- | --- | --- |
+| `value` | `SpringOptions` | The spring as the sliders describe it right now. |
+| `mode` | `SpringEditorMode` |  |
+| `set` | `(value: SpringOptions): void` |  |
+| `setMode` | `(mode: SpringEditorMode): void` |  |
+| `play` | `(): Promise<boolean>` | Runs the spring on the ball, from the left end to the right. |
+| `code` | `(): string` | The code line for the current spring, e.g. `{ duration: 0.45, bounce: 0.12 }`. |
 | `destroy` | `(): void` |  |
 
 ## stackNav

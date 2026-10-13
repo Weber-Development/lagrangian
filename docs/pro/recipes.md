@@ -3,6 +3,8 @@ title: Recipes
 description: Three complete patterns built from Lagrangian Pro parts: a form in a bottom sheet, an image gallery and a kanban board.
 ---
 
+From Lagrangian Pro 2.1 the [form sheet, the gallery and swipeable rows are available as one function each](ready-made.md). The examples below show how to build such patterns from the parts yourself.
+
 All examples use the framework-free API. In React, use the hook with the same name and put `ref`
 directly on the element.
 

@@ -16,6 +16,8 @@ reduced motion is respected throughout.
 | [Toasts, indicator, fall](stack.md) | A swipeable toast stack, a sliding tab indicator and a page effect that lets a section fall apart and come back |
 | [Board and zoom](board.md) | Drag to rearrange a grid or the columns of a board, and pinch, wheel and double tap zoom |
 | [Stack navigation](stack-nav.md) and [gestures](gestures.md) | Pages that slide and swipe back, shared elements that fly between pages, and a referee for nested gestures |
+| [Ready-made recipes](ready-made.md) | A form in a bottom sheet that guards unsaved changes, a photo gallery that opens from its thumbnail, swipeable list rows |
+| [Spring editor](spring-editor.md) (beta) | Sliders, curve, preview and copy-ready code for tuning a spring |
 | [Jelly, ropes and sounds](effects.md) | Squash and stretch from velocity, Verlet ropes, synthesized impact sounds |
 
 ## Packages
